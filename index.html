@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>永遠之暗練習場</title>
+    <meta name="claude:viewport-fit-sides" content="cover" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div id="stage"></div>
+    <div id="flash" class="hud"></div>
+
+    <details id="panel" class="hud box" open>
+      <summary>
+        <span class="eyebrow">FF14 7.3 · 殲滅戰練習場</span>
+        <span class="ttl">永遠之暗悲惶殲滅戰<small>The Ageless Necropolis</small></span>
+      </summary>
+      <div class="fields">
+        <label
+          >練習範圍
+          <select id="mode">
+            <option value="all" selected>全程（依序）</option>
+            <option value="p1">第一階段（青之衝擊～小怪）</option>
+            <option value="p2">第二階段（黑暗巨腕～狂暴）</option>
+            <option value="shock">青之衝擊</option>
+            <option value="fear">死之恐懼（引導黑手）</option>
+            <option value="grip">暗之死腕</option>
+            <option value="memento">死亡警告＋黑暗一擊</option>
+            <option value="soul1">青魂＋二重／四重波</option>
+            <option value="soul2">青魂＋死之恐懼＋引導之翼＋青之衝擊</option>
+            <option value="gc">大十字</option>
+            <option value="adds">小怪階段</option>
+            <option value="specter">黑暗巨腕＋引導之翼＋暗之死腕</option>
+            <option value="rel">青之連魂＋靈魂輪轉</option>
+            <option value="ring">青之環波＋青魂</option>
+            <option value="macabre">群體恐慌＋青之衝擊</option>
+          </select>
+        </label>
+        <label
+          >我的職能
+          <select id="role">
+            <option>MT</option>
+            <option>ST</option>
+            <option>H1</option>
+            <option>H2</option>
+            <option selected>D1</option>
+            <option>D2</option>
+            <option>D3</option>
+            <option>D4</option>
+          </select>
+        </label>
+        <label class="chk"
+          ><input type="checkbox" id="hintMe" checked /> 提示我現在該站哪（金色圈＋文字）</label
+        >
+        <div class="group">
+          <h3>變體（預設隨機）</h3>
+          <label
+            >青魂儲存
+            <select id="soulVar">
+              <option value="rand" selected>隨機</option>
+              <option value="in">固定記「內」</option>
+              <option value="out">固定記「外」</option>
+            </select>
+          </label>
+          <label
+            >分攤
+            <select id="waveVar">
+              <option value="rand" selected>隨機</option>
+              <option value="two">固定二重（4 人分攤）</option>
+              <option value="four">固定四重（2 人分攤）</option>
+            </select>
+          </label>
+          <label
+            >死之恐懼黑泥
+            <select id="fearVar">
+              <option value="rand" selected>隨機</option>
+              <option value="A">配置一</option>
+              <option value="B">配置二</option>
+            </select>
+          </label>
+          <label
+            >暗之死腕發光手
+            <select id="gripVar">
+              <option value="rand" selected>隨機</option>
+              <option value="E">東（右）</option>
+              <option value="W">西（左）</option>
+            </select>
+          </label>
+          <label
+            >死亡警告黑翼
+            <select id="wingVar">
+              <option value="rand" selected>隨機</option>
+              <option value="W">西（左）</option>
+              <option value="E">東（右）</option>
+            </select>
+          </label>
+          <label
+            >黑暗巨腕安全排
+            <select id="rowVar">
+              <option value="rand" selected>隨機</option>
+              <option value="1">第一排（北）</option>
+              <option value="2">第二排（中）</option>
+              <option value="3">第三排（南）</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <button id="go" type="button">開始（Enter）</button>
+      <p class="note">
+        站位依 B 站子言姐姐 7.3 攻略：數字場標 1234 給「安全在內」的分攤、字母 ABCD 給「安全在外」的分攤；
+        四重波固定搭檔 MT-D1、ST-D2、H1-D3、H2-D4；二重波左右兩組。範圍大小與時間為推估值。
+      </p>
+    </details>
+
+    <div id="timeline" class="hud box" hidden>
+      <h4>時間軸</h4>
+      <div id="tlList"></div>
+    </div>
+
+    <div id="cast" class="hud box" hidden>
+      <div class="castname" id="castName"></div>
+      <div class="bar"><div class="fill" id="castFill"></div></div>
+      <div id="advice"></div>
+    </div>
+
+    <div id="gauge" class="hud box" hidden>
+      <span>死之恐懼</span>
+      <div class="bar"><div class="fill" id="gaugeFill"></div></div>
+    </div>
+
+    <div id="me" class="hud box">
+      <div id="meRole">D1・DPS 組</div>
+      <div id="meDeb"></div>
+      <div class="rec" id="meRec">通過 0 / 嘗試 0</div>
+    </div>
+
+    <div id="help" class="hud box">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動　<kbd>空白</kbd> 跳躍　拖曳 轉視角　滾輪
+      縮放　<kbd>Enter</kbd>
+      開始／重來
+    </div>
+
+    <div id="banner" class="hud box intro">
+      <h2>永遠之暗悲惶殲滅戰 練習場</h2>
+      <p>
+        全程依序：青之衝擊 → 死之恐懼 → 暗之死腕 → 死亡警告 → 青魂 → 青魂第二輪 → 大十字 → 小怪 → 黑暗巨腕 →
+        青之連魂 → 青之環波 → 群體恐慌 → … → 永遠之暗。也可以在左側「練習範圍」單選一個機制。
+      </p>
+      <p class="sub">其他 7 人由 NPC 照攻略走位，你只控制自己。站錯會立刻停下並說明原因。</p>
+      <p class="sub">按「開始」或 Enter（空白鍵也可以開始，進行中空白鍵是跳躍）。</p>
+    </div>
+
+    <div id="joy" class="hud" hidden><div id="knob"></div></div>
+    <div id="err" class="hud" hidden></div>
+
+    <script src="js/boot.js"></script>
+  </body>
+</html>
