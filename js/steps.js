@@ -15,11 +15,11 @@ const STEPS = [
   { id: 'adds', grp: 'p1', name: '小怪階段＋永遠之暗', fn: (n) => addsPhase(n) },
   { id: 'specter', grp: 'p2', name: '黑暗巨腕＋引導之翼＋暗之死腕', fn: (n) => specter(n) },
   { id: 'rel', grp: 'p2', name: '青之連魂＋靈魂輪轉', fn: (n) => relentless(n) },
-  { id: 'ring', grp: 'p2', name: '青之環波＋青魂', fn: (n) => ringWave(n) },
+  { id: 'ring', grp: 'p2', name: '青之環波（5 下）＋青魂', fn: (n) => ringWave(n) },
   { id: 'macabre', grp: 'p2', name: '群體恐慌＋青之衝擊＋暗之死腕', fn: (n) => macabre(n) },
   { id: 'rel2', grp: 'p2', name: '青之連魂（第二次）', fn: (n) => relentless(n) },
   { id: 'fear2', grp: 'p2', name: '死之恐懼', fn: (n) => fearOfDeath(n) },
-  { id: 'ring2', grp: 'p2', name: '青之環波（第二次）', fn: (n) => ringWave(n) },
+  { id: 'ring2', grp: 'p2', name: '青之環波（第二次：4 下＋巨手）', fn: (n) => ringWave(n, { count: 4, soul: false }) },
   {
     id: 'memento2',
     grp: 'p2',
