@@ -363,6 +363,121 @@ function ringWave(next, opt = {}) {
   step(0);
 }
 
+/* ---------- 青之環波（第二次）：4 個光圈壓在兩排的交界上，巨手只蓋到光圈的一半 ----------
+ * 光圈：右上／左上在「北排與中排」交界（z = -5），右下／左下在「中排與南排」交界（z = +5）。
+ * 順序：第 1 個 → 正北或正南 → 東西隔壁 → 正北或正南（沒有中間）。
+ * 第 2 下：兩隻手同時落下，掃三排中的兩排 → 站在光圈裡、沒被掃的那一半。
+ * 第 4 下：再落一隻手，掃光圈其中一半 → 站另一半。手和環形同時判定。 */
+const ORBS2 = {
+  TL: { x: -12.6, z: -5 },
+  TR: { x: 12.6, z: -5 },
+  BL: { x: -12.6, z: 5 },
+  BR: { x: 12.6, z: 5 },
+};
+const ROWS3 = {
+  top: { z: [-HZ, -5], name: '北排' },
+  mid: { z: [-5, 5], name: '中排' },
+  bot: { z: [5, HZ], name: '南排' },
+};
+// 光圈跨的兩排（上半、下半）
+const orbRows = (k) => (ORBS2[k].z < 0 ? ['top', 'mid'] : ['mid', 'bot']);
+function ringWave2(next) {
+  const o1 = window.__force_orb || pick(['TL', 'TR', 'BL', 'BR']);
+  const o2 = VERT[o1],
+    o3 = HORI[o2],
+    o4 = VERT[o3];
+  const seq = [o1, o2, o3, o4];
+  // 第 2 下：安全排是光圈跨的兩排之一，另外兩排被掃
+  // → 兩隻手不會同時掃光圈跨的兩排（例如右上光圈不會同時掃北排＋中排），一定留一半可以站
+  const safe2 = window.__force_safe2 || pick(orbRows(o2));
+  const swept2 = Object.keys(ROWS3).filter((r) => r !== safe2);
+  // 第 4 下：一隻手掃光圈跨的其中一排
+  const swept4 = window.__force_swept4 || pick(orbRows(o4));
+  const safe4 = orbRows(o4).find((r) => r !== swept4);
+  const handAt = { 1: { swept: swept2, safe: safe2 }, 3: { swept: [swept4], safe: safe4 } };
+
+  const orbMeshes = {};
+  Object.entries(ORBS2).forEach(([k, p]) => {
+    const g = new T.Group();
+    const mat = new T.MeshStandardMaterial({ color: 0x8fe6ff, emissive: 0x2bb6ff, emissiveIntensity: 1.2 });
+    const s = new T.Mesh(new T.SphereGeometry(0.8, 16, 12), mat);
+    s.position.y = 1.2;
+    g.add(s, ringMesh(0, 0, ORB_SAFE - 0.15, ORB_SAFE, 0x8fe6ff, 0.8));
+    g.position.set(p.x, 0, p.z);
+    g.userData.mat = mat;
+    omen(g, 60);
+    orbMeshes[k] = g;
+  });
+  const glow = (k, on) => {
+    const g = orbMeshes[k];
+    g.scale.setScalar(on ? 1.3 : 1);
+    g.userData.mat.color.setHex(on ? 0x7dff9a : 0x8fe6ff);
+    g.userData.mat.emissive.setHex(on ? 0x22c85a : 0x2bb6ff);
+  };
+  // 站位：光圈中心附近；有手時站光圈裡、安全排那一半
+  const idx = (m) => ROLE_IDS.indexOf(m.id);
+  const spot = (k, m, safeRow) => {
+    const o = ORBS2[k];
+    const dx = ((idx(m) % 4) - 1.5) * 0.9;
+    if (!safeRow) return { x: o.x + dx, z: o.z + (idx(m) < 4 ? -0.6 : 0.6) };
+    const up = ROWS3[safeRow].z[1] <= o.z; // 安全排在交界線的北邊
+    const dz = 1.1 + (idx(m) < 4 ? 0 : 0.9);
+    return { x: o.x + dx, z: o.z + (up ? -dz : dz) };
+  };
+  const GAPS = [7, 5, 5.5, 5];
+  let hands = [];
+  const step = (i) => {
+    const k = seq[i],
+      h = handAt[i];
+    glow(k, true);
+    const donut = omen(ringMesh(ORBS2[k].x, ORBS2[k].z, ORB_SAFE, 45, 0x55c8ff, 0.18), GAPS[i]);
+    setCast('青之環波', `第 ${i + 1} / 4 下：${ORB_NAME[k]}的光圈（變綠的那個）`, GAPS[i]);
+    let bandMeshes = [];
+    if (h) {
+      h.swept.forEach((r, j) => {
+        const s = j ? 1 : -1;
+        const cz = (ROWS3[r].z[0] + ROWS3[r].z[1]) / 2;
+        hands.push(
+          addFx(placeHand(handModel(4), { x: s * (HX + 3), z: cz }, { x: -s, z: 0 }), GAPS[i] + 0.5, false),
+        );
+        bandMeshes.push(omen(rectMesh(-HX, HX, ROWS3[r].z[0], ROWS3[r].z[1], 0xff9a3d, 0.26), GAPS[i]));
+      });
+      const half = ROWS3[h.safe].z[1] <= ORBS2[k].z ? '北半邊' : '南半邊';
+      advice = `${h.swept.length === 2 ? '兩隻手' : '一隻手'}掃${h.swept.map((r) => ROWS3[r].name).join('＋')}：站${ORB_NAME[k]}光圈的${half}（${ROWS3[h.safe].name}那側）。`;
+    } else
+      advice =
+        i === 0
+          ? `${ORB_NAME[k]}的光圈先變綠 → 進去躲環形。順序：${seq.map((x) => ORB_NAME[x]).join(' → ')}`
+          : `下一個：${ORB_NAME[k]}。`;
+    setPlan((m) => spot(k, m, h && h.safe), i === 0 ? 0.4 : 0.15);
+    at(t + GAPS[i], () => {
+      if (state !== 'running') return;
+      removeFx(donut);
+      bandMeshes.forEach(removeFx);
+      glow(k, false);
+      strongFlash(ringMesh(ORBS2[k].x, ORBS2[k].z, ORB_SAFE, 45, 0x55c8ff, 0.45));
+      if (h)
+        h.swept.forEach((r) => strongFlash(rectMesh(-HX, HX, ROWS3[r].z[0], ROWS3[r].z[1], 0xff9a3d, 0.5)));
+      const ok = judge(`青之環波（第 ${i + 1} 下）`, (m) => {
+        if (dist(m, ORBS2[k]) > ORB_SAFE) return `${who(m)} 沒有站進${ORB_NAME[k]}的光圈，被環形打到。`;
+        if (h) {
+          const r = h.swept.find((r) => m.z > ROWS3[r].z[0] && m.z < ROWS3[r].z[1]);
+          if (r)
+            return `${who(m)} 站在光圈的${ROWS3[r].name}那半邊，被巨手掃到。要站${ROWS3[h.safe].name}那半邊。`;
+        }
+        return '';
+      });
+      if (!ok) return;
+      if (i < 3) return step(i + 1);
+      Object.values(orbMeshes).forEach(removeFx);
+      hands.forEach(removeFx);
+      cast = null;
+      next();
+    });
+  };
+  step(0);
+}
+
 /* ---------- 群體恐慌：踩塔（塔上幾個圈就要幾個人）＋死亡警告＋青之衝擊 ---------- */
 const MM_TOWERS = {
   // 中間上下的 4 人塔（影片示意圖：塔裡 4 個圈）：近戰北、遠程南，一開始就踩
