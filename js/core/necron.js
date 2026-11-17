@@ -49,10 +49,13 @@ function iconTexKind(kind, num, lit) {
     g.stroke();
   }
   if (num) {
-    g.font = '900 30px system-ui';
+    g.font = '900 34px system-ui';
+    g.lineWidth = 6;
+    g.strokeStyle = '#0b2236';
+    g.strokeText(num, 64, 122);
     g.fillStyle = '#fff';
     g.textAlign = 'center';
-    g.fillText(num, 64, 120);
+    g.fillText(num, 64, 122);
   }
   return canvasTex(cv);
 }
@@ -61,12 +64,15 @@ function clearWheel() {
   while (w.children.length) w.remove(w.children[0]);
   w.rotation.z = 0;
 }
+// 圖示大小（王模型縮放 0.72 前的尺寸）與輪盤半徑：放大到遠處也看得清楚
+const ICON_SIZE = 3.2,
+  ICON_RING = 3.6;
 // 在輪盤上放圖示：slots = [{kind, num, lit}]，依序排在下、左、上、右（4 個）或正中（1 個）
 function showWheel(slots) {
   clearWheel();
   slots.forEach((s, i) => {
     const sp = new T.Mesh(
-      new T.PlaneGeometry(1.5, 1.5),
+      new T.PlaneGeometry(ICON_SIZE, ICON_SIZE),
       new T.MeshBasicMaterial({
         map: iconTexKind(s.kind, s.num, s.lit),
         transparent: true,
@@ -75,7 +81,7 @@ function showWheel(slots) {
     );
     if (slots.length > 1) {
       const a = (i / slots.length) * Math.PI * 2;
-      sp.position.set(Math.sin(a) * 2.2, -Math.cos(a) * 2.2, 0.1);
+      sp.position.set(Math.sin(a) * ICON_RING, -Math.cos(a) * ICON_RING, 0.1);
     }
     sp.userData.slot = i;
     bossParts.wheel.add(sp);
@@ -179,8 +185,8 @@ function resolveWave(type, targets) {
   return reasons;
 }
 
-/* ---------- 青之衝擊：坦克死刑扇形（90°） ---------- */
-const SHOCK_HALF = 45;
+/* ---------- 青之衝擊：坦克死刑扇形（約 116°，依影片群體恐慌示意圖：會蓋到部分踩塔圈） ---------- */
+const SHOCK_HALF = 58;
 const TANK_CORNER = { MT: { x: -16.8, z: -13.8 }, ST: { x: 16.8, z: -13.8 } };
 // 對 tankId 打一次；回傳失敗原因
 function shockHit(tankId) {
@@ -194,7 +200,7 @@ function shockHit(tankId) {
     r.push(
       m.tank
         ? `${who(m)} 被 ${tankId} 的青之衝擊打到（坦克也不能吃兩下，要錯開）。`
-        : `${who(m)} 被 ${tankId} 的青之衝擊（90° 扇形）打到。${tankId} 要站${tankId === 'MT' ? '左上（西北）' : '右上（東北）'}角落把扇形引開。`,
+        : `${who(m)} 被 ${tankId} 的青之衝擊（116° 扇形）打到。${tankId} 要站${tankId === 'MT' ? '左上（西北）' : '右上（東北）'}角落把扇形引開。`,
     );
   });
   if (hasVuln(tm)) r.push(`${who(tm)} 身上還有易傷就吃了青之衝擊。`);

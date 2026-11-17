@@ -175,7 +175,7 @@ const bossParts = {};
   halo.position.set(0, 9.8, 1.4);
   // 胸前輪盤
   const wheel = new T.Group();
-  wheel.position.set(0, 9.6, 1.9);
+  wheel.position.set(0, 9.6, 2.6); // 往前一點，放大的圖示才不會被身體擋住
   boss.add(body, torso, head, halo, wheel);
   bossParts.wheel = wheel;
   // 翅膀：左右各一，死亡警告時一黑一白
