@@ -412,11 +412,21 @@ function macabre(next) {
     lit(['NE', 'SW']);
     setCast('青之衝擊', 'MT 去左上角；其他人等易傷消失後踩 3 人塔', 5);
     shockMark('MT');
-    advice = 'MT 左上角吃死刑；H2 D1 D2 踩右上塔、H1 D3 D4 踩左下塔（站塔的東南側躲扇形）。易傷消失後再踩。';
+    advice = 'MT 左上角吃死刑；H2 D1 D2 踩右上塔、H1 D3 D4 踩左下塔（扇形會蓋到左下塔的西半邊 → 站塔的東側）。';
+    // 下方的 3 人塔有一半在青之衝擊扇形裡：站靠場地中線的那一側（s = -1 左下塔、+1 右下塔）
+    const LOW_SPOT = [
+      [7.0, 11.4],
+      [6.9, 12.6],
+      [7.6, 13.4],
+    ];
     const p3 = (m, a, b) => {
       const tw = MM_TOWERS[g1.includes(m.id) ? a : b];
       const i = (g1.includes(m.id) ? g1 : g2).indexOf(m.id);
-      return { x: tw.x + 0.9 + (i - 1) * 0.6, z: tw.z + (tw.z > 0 ? 1.1 : 0) + (i === 1 ? 0.5 : 0) };
+      if (tw.z > 0) {
+        const s = Math.sign(tw.x);
+        return { x: s * LOW_SPOT[i][0], z: LOW_SPOT[i][1] };
+      }
+      return { x: tw.x + 0.9 + (i - 1) * 0.6, z: tw.z + (i === 1 ? 0.5 : 0) };
     };
     setPlan((m) => (m.tank ? TANK_CORNER[m.id] : p3(m, 'NE', 'SW')), 0.3);
     at(t + 5, () => {
@@ -429,12 +439,8 @@ function macabre(next) {
       lit(['NW', 'SE']);
       setCast('青之衝擊', 'ST 去右上角吃第二下；換左上、右下的塔', 5);
       shockMark('ST');
-      advice = 'ST 必須在最右上角；H2 D1 D2 換到左上塔、H1 D3 D4 換到右下塔（站塔的西南側）。';
-      setPlan((m) => {
-        if (m.tank) return TANK_CORNER[m.id];
-        const p = p3(m, 'NW', 'SE');
-        return g2.includes(m.id) ? { x: p.x - 1.8, z: p.z } : p;
-      }, 0.3);
+      advice = 'ST 必須在最右上角；H2 D1 D2 換到左上塔、H1 D3 D4 換到右下塔（扇形會蓋到右下塔的東半邊 → 站塔的西側）。';
+      setPlan((m) => (m.tank ? TANK_CORNER[m.id] : p3(m, 'NW', 'SE')), 0.3);
       at(t + 5, () => {
         let r3 = shockHit('ST');
         setTag(byId('ST'), '');
