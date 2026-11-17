@@ -22,8 +22,8 @@ const STEPS = [
   {
     id: 'ring2',
     grp: 'p2',
-    name: '青之環波（第二次：4 下＋雙手）',
-    fn: (n) => ringWave(n, { count: 4, soul: false, double: true }),
+    name: '青之環波（第二次：4 圈壓交界＋雙手／單手）',
+    fn: (n) => ringWave2(n),
   },
   {
     id: 'memento2',
