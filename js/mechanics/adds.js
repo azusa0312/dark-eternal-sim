@@ -58,7 +58,10 @@ function addsPhase(next) {
     if (m.tank) return home;
     return nearestOk(
       home,
-      (p) => inRect(p, -HX + 1, HX - 1, -HZ + 1, HZ - 1) && !lines.some((l) => lineHit(p, l)),
+      // 多留 0.6m 安全距離：之前剛好停在線的邊緣（距離 = 半寬），會因為浮點誤差被判定打到
+      (p) =>
+        inRect(p, -HX + 1, HX - 1, -HZ + 1, HZ - 1) &&
+        !lines.some((l) => inLine(p, l.o, l.d, 40, l.hw + 0.6)),
     );
   }, 0.4);
   const smallWave = (k, after) => {
