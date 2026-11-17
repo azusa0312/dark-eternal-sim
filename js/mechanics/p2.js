@@ -225,10 +225,32 @@ function ringWave(next, opt = {}) {
     o4 = HORI[o2],
     o5 = VERT[o4];
   const seq = [o1, o2, 'C', o4, o5].slice(0, count);
-  // 巨手掃的排：中間排（擋住去中間的路 → 要等），或第 1 個光圈那排（不影響，直接去中間）
-  const band = window.__force_band || pick(['mid', 'far']);
-  const bandZ = band === 'mid' ? [-5, 5] : ORBS[o1].z < 0 ? [-HZ, -5] : [5, HZ];
-  const bandName = band === 'mid' ? '中間排' : ORBS[o1].z < 0 ? '第一排（北）' : '第三排（南）';
+  // 三排：北（第一排）、中、南（第三排）
+  const ROW = {
+    top: { z: [-HZ, -5], name: '第一排（北）', cz: -10.4 },
+    mid: { z: [-5, 5], name: '中間排', cz: 0 },
+    bot: { z: [5, HZ], name: '第三排（南）', cz: 10.4 },
+  };
+  const rowOf = (k) => (ORBS[k].z < 0 ? 'top' : 'bot');
+  // 第一次：一隻巨手掃一排（中間排 → 要在第 2 個角落等；或第 1 個光圈那排 → 不影響）
+  // 第二次（影片 30:16 兩個「黑暗巨腕」同時讀條）：兩隻手同時掃兩排，只剩一排安全
+  const double = !!opt.double;
+  let bands, safeRow;
+  if (double) {
+    safeRow = window.__force_safeRow || pick(['top', 'mid', 'bot']);
+    bands = Object.keys(ROW).filter((r) => r !== safeRow);
+  } else {
+    const band = window.__force_band || pick(['mid', 'far']);
+    bands = [band === 'mid' ? 'mid' : rowOf(o1)];
+  }
+  const bandName = bands.map((r) => ROW[r].name).join('＋');
+  const midSwept = bands.includes('mid');
+  // 巨手打之前要待的位置：第 2 個角落那排安全就待在角落，否則到安全排、靠第 2 個角落那側
+  const waitSpot = (m) => {
+    if (!bands.includes(rowOf(o2))) return at2(o2, m);
+    const r = ROW[safeRow];
+    return { x: ORBS[o2].x * 0.5 + off(m).x, z: r.cz + off(m).z };
+  };
   const orbMeshes = {};
   Object.entries(ORBS).forEach(([k, p]) => {
     const g = new T.Group();
@@ -254,10 +276,10 @@ function ringWave(next, opt = {}) {
   });
   const at2 = (k, m) => ({ x: ORBS[k].x + off(m).x, z: ORBS[k].z + off(m).z });
   // 每一下：光圈變綠 → GAPS[i] 秒後以它為中心放環形（只有光圈內安全）
-  const GAPS = [7, 5, 5, 5, 5];
-  const SWEEP_DELAY = 1.5; // 第 2 下打完後巨手橫掃
-  let hand = null,
-    bandMesh = null,
+  const GAPS = double ? [7, 5, 6.5, 5, 5] : [7, 5, 5, 5, 5];
+  const SWEEP_DELAY = double ? 3.6 : 1.5; // 第 2 下打完後巨手橫掃（兩隻手時要換排，給多一點時間）
+  let hands = [],
+    bandMeshes = [],
     swept = false,
     kind = null;
   const last = seq.length - 1;
@@ -272,20 +294,26 @@ function ringWave(next, opt = {}) {
         : `下一個：${ORB_NAME[k]}。`;
     // 第 2 下時巨手出現（西側），第 2 下打完 1.5 秒後橫掃
     if (i === 1) {
-      hand = addFx(
-        placeHand(handModel(4), { x: -HX - 3, z: (bandZ[0] + bandZ[1]) / 2 }, { x: 1, z: 0 }),
-        30,
-        false,
-      );
-      bandMesh = omen(rectMesh(-HX, HX, bandZ[0], bandZ[1], 0xff9a3d, 0.28), GAPS[1] + SWEEP_DELAY);
-      advice =
-        band === 'mid'
+      bands.forEach((r, j) => {
+        const s = j ? 1 : -1; // 第一隻從西邊、第二隻從東邊
+        hands.push(
+          addFx(placeHand(handModel(4), { x: s * (HX + 3), z: ROW[r].cz || 0 }, { x: -s, z: 0 }), 30, false),
+        );
+        bandMeshes.push(
+          omen(rectMesh(-HX, HX, ROW[r].z[0], ROW[r].z[1], 0xff9a3d, 0.28), GAPS[1] + SWEEP_DELAY),
+        );
+      });
+      advice = double
+        ? `兩隻巨手（掃${bandName}）：躲完這下到${ROW[safeRow].name}，等巨手打完再去中間。`
+        : midSwept
           ? `巨手出現（掃中間排）：躲完這下先別動，等巨手打完再去中間。`
           : `巨手出現（掃${bandName}）：不影響去中間的路。下一個：${ORB_NAME[k]}。`;
     }
-    if (i === 2 && band === 'mid') {
-      advice = swept ? `巨手打完了 → 去中間。` : `巨手掃中間排：先待在${ORB_NAME[seq[1]]}，打完再去中間。`;
-      setPlan((m) => (swept ? at2(k, m) : at2(seq[1], m)), 0.15);
+    if (i === 2 && (double || midSwept)) {
+      advice = double
+        ? `兩隻巨手掃${bandName}：先到${ROW[safeRow].name}，打完再去中間。`
+        : `巨手掃中間排：先待在${ORB_NAME[seq[1]]}，打完再去中間。`;
+      setPlan((m) => (swept ? at2(k, m) : waitSpot(m)), 0.15);
     } else setPlan((m) => at2(k, m), i === 0 ? 0.4 : 0.15);
     // 第一次的最後一下：王同時讀青魂存一個
     if (i === last && withSoul) {
@@ -309,19 +337,21 @@ function ringWave(next, opt = {}) {
       if (i === 1)
         at(t + SWEEP_DELAY, () => {
           if (state !== 'running') return;
-          removeFx(bandMesh);
-          strongFlash(rectMesh(-HX, HX, bandZ[0], bandZ[1], 0xff9a3d, 0.5));
+          bandMeshes.forEach(removeFx);
+          bands.forEach((r) => strongFlash(rectMesh(-HX, HX, ROW[r].z[0], ROW[r].z[1], 0xff9a3d, 0.5)));
           swept = true;
-          if (band === 'mid') advice = '巨手打完了 → 去中間。';
-          judge('黑暗巨腕（青之環波）', (m) =>
-            m.z > bandZ[0] && m.z < bandZ[1]
-              ? `${who(m)} 在巨手掃的${bandName}，被抓進異空間。等巨手打完再從${ORB_NAME[seq[1]]}出發。`
-              : '',
-          );
+          if (double || midSwept) advice = '巨手打完了 → 去中間。';
+          judge('黑暗巨腕（青之環波）', (m) => {
+            const r = bands.find((r) => m.z > ROW[r].z[0] && m.z < ROW[r].z[1]);
+            if (!r) return '';
+            return double
+              ? `${who(m)} 在巨手掃的${ROW[r].name}，被抓進異空間。兩隻手只留${ROW[safeRow].name}安全。`
+              : `${who(m)} 在巨手掃的${bandName}，被抓進異空間。等巨手打完再從${ORB_NAME[seq[1]]}出發。`;
+          });
         });
       if (i < last) return step(i + 1);
       Object.values(orbMeshes).forEach(removeFx);
-      if (hand) removeFx(hand);
+      hands.forEach(removeFx);
       if (!withSoul) {
         cast = null;
         return next();
@@ -335,6 +365,9 @@ function ringWave(next, opt = {}) {
 
 /* ---------- 群體恐慌：踩塔（塔上幾個圈就要幾個人）＋死亡警告＋青之衝擊 ---------- */
 const MM_TOWERS = {
+  // 中間上下的 4 人塔（影片示意圖：塔裡 4 個圈）：近戰北、遠程南，一開始就踩
+  Nc: { x: 0, z: -6.2, n: 4, ids: ['MT', 'ST', 'D1', 'D2'], name: '中間上' },
+  Sc: { x: 0, z: 6, n: 4, ids: ['H1', 'H2', 'D3', 'D4'], name: '中間下' },
   Wu: { x: -14.9, z: -2.8, n: 2, ids: ['D3', 'D4'], name: '西側上' },
   Wd: { x: -14.9, z: 3.3, n: 2, ids: ['MT', 'H1'], name: '西側下' },
   Eu: { x: 14.9, z: -2.8, n: 2, ids: ['D1', 'D2'], name: '東側上' },
@@ -384,94 +417,121 @@ function soakTowers(keys, label) {
   return reasons;
 }
 function macabre(next) {
-  const LEN = 7;
-  setCast('群體恐慌', '塔上幾個圈就要幾個人踩；同時死亡警告', LEN);
-  advice = '先分成兩邊踩 2 人塔（無視黑白翅膀），中間會被死亡警告打。';
-  setWings(pick(['W', 'E']));
   const all = Object.fromEntries(
-    Object.entries(MM_TOWERS).map(([k, tw]) => [
-      k,
-      omen(towerMesh(tw, k.length === 2 && 'WuWdEuEd'.includes(k)), 30),
-    ]),
+    Object.entries(MM_TOWERS).map(([k, tw]) => [k, omen(towerMesh(tw, k === 'Nc' || k === 'Sc'), 40)]),
   );
-  const strip = omen(rectMesh(-MM_MUD, MM_MUD, -HZ, HZ, 0x8a2bff, 0.3), LEN);
-  const t2 = ['Wu', 'Wd', 'Eu', 'Ed'];
-  const spotOf = (m) => {
-    const k = t2.find((k) => MM_TOWERS[k].ids.includes(m.id));
-    const tw = MM_TOWERS[k];
-    return { x: tw.x + (tw.ids[0] === m.id ? -0.5 : 0.5), z: tw.z };
-  };
-  setPlan(spotOf, 0.4);
-  at(t + LEN, () => {
-    removeFx(strip);
-    setWings(null);
-    strongFlash(rectMesh(-MM_MUD, MM_MUD, -HZ, HZ, 0x8a2bff, 0.5));
-    let r = members.filter((m) => Math.abs(m.x) < MM_MUD).map((m) => `${who(m)} 站在中間，被死亡警告打到。`);
-    r = r.concat(soakTowers(t2, '第一輪：'));
-    t2.forEach((k) => removeFx(all[k]));
-    if (r.length) return fail('群體恐慌', r);
-    // 黑泥 4 秒
-    const mud = addFx(rectMesh(-MM_MUD, MM_MUD, -HZ, HZ, 0x2a0a48, 0.75, 0.05), 4, false);
-    mud.renderOrder = 2;
-    const mudEnd = t + 4;
-    tick(() => {
-      if (t > mudEnd) return true;
-      const bad = members.find((m) => Math.abs(m.x) < MM_MUD - 0.3);
-      if (bad) {
-        fail('群體恐慌', [`${who(bad)} 踩到中間的黑泥（流血）。等黑泥消失再穿過中間。`]);
-        return true;
-      }
+  const lit = (ks) =>
+    ks.forEach((k) => {
+      removeFx(all[k]);
+      all[k] = omen(towerMesh(MM_TOWERS[k], true), 14);
     });
-    // 第二輪：青之衝擊（MT）＋右上、左下 3 人塔
-    const g1 = ['H2', 'D1', 'D2'],
-      g2 = ['H1', 'D3', 'D4'];
-    const lit = (ks) =>
-      ks.forEach((k) => {
-        removeFx(all[k]);
-        all[k] = omen(towerMesh(MM_TOWERS[k], true), 12);
-      });
-    lit(['NE', 'SW']);
-    setCast('青之衝擊', 'MT 去左上角；其他人等易傷消失後踩 3 人塔', 5);
-    shockMark('MT');
-    advice = 'MT 左上角吃死刑；H2 D1 D2 踩右上塔、H1 D3 D4 踩左下塔（扇形會蓋到左下塔的西半邊 → 站塔的東側）。';
-    // 下方的 3 人塔有一半在青之衝擊扇形裡：站靠場地中線的那一側（s = -1 左下塔、+1 右下塔）
-    const LOW_SPOT = [
-      [7.0, 11.4],
-      [6.9, 12.6],
-      [7.6, 13.4],
-    ];
-    const p3 = (m, a, b) => {
-      const tw = MM_TOWERS[g1.includes(m.id) ? a : b];
-      const i = (g1.includes(m.id) ? g1 : g2).indexOf(m.id);
-      if (tw.z > 0) {
-        const s = Math.sign(tw.x);
-        return { x: s * LOW_SPOT[i][0], z: LOW_SPOT[i][1] };
-      }
-      return { x: tw.x + 0.9 + (i - 1) * 0.6, z: tw.z + (i === 1 ? 0.5 : 0) };
-    };
-    setPlan((m) => (m.tank ? TANK_CORNER[m.id] : p3(m, 'NE', 'SW')), 0.3);
-    at(t + 5, () => {
-      let r2 = shockHit('MT');
-      setTag(byId('MT'), '');
-      r2 = r2.concat(soakTowers(['NE', 'SW'], '第二輪：'));
-      ['NE', 'SW'].forEach((k) => removeFx(all[k]));
-      if (r2.length) return fail('群體恐慌（第二輪）', r2);
-      // 第三輪：青之衝擊（ST）＋左上、右下 3 人塔
-      lit(['NW', 'SE']);
-      setCast('青之衝擊', 'ST 去右上角吃第二下；換左上、右下的塔', 5);
-      shockMark('ST');
-      advice = 'ST 必須在最右上角；H2 D1 D2 換到左上塔、H1 D3 D4 換到右下塔（扇形會蓋到右下塔的東半邊 → 站塔的西側）。';
-      setPlan((m) => (m.tank ? TANK_CORNER[m.id] : p3(m, 'NW', 'SE')), 0.3);
-      at(t + 5, () => {
-        let r3 = shockHit('ST');
-        setTag(byId('ST'), '');
-        r3 = r3.concat(soakTowers(['NW', 'SE'], '第三輪：'));
-        ['NW', 'SE'].forEach((k) => removeFx(all[k]));
-        if (r3.length) return fail('群體恐慌（第三輪）', r3);
-        at(t + 0.8, () => coldGrip(next));
-      });
-    });
+  // 第一輪：中間 4 人塔（立刻踩，踩完 4 秒易傷）
+  const LEN0 = 4.5;
+  setCast('群體恐慌', '塔上幾個圈就要幾個人踩：先踩中間的 4 人塔（近戰北、遠程南）', LEN0);
+  advice = `先踩中間 4 人塔：${MM_TOWERS.Nc.ids.includes(player.id) ? '你是近戰組 → 北邊那座' : '你是遠程組 → 南邊那座'}。`;
+  const c4 = ['Nc', 'Sc'];
+  const OFF4 = [
+    [-0.8, -0.6],
+    [0.8, -0.6],
+    [-0.8, 0.6],
+    [0.8, 0.6],
+  ];
+  setPlan((m) => {
+    const tw = MM_TOWERS[c4.find((k) => MM_TOWERS[k].ids.includes(m.id))];
+    const o = OFF4[tw.ids.indexOf(m.id)];
+    return { x: tw.x + o[0], z: tw.z + o[1] };
+  }, 0.4);
+  at(t + LEN0, () => {
+    let r0 = soakTowers(c4, '第一輪：');
+    c4.forEach((k) => removeFx(all[k]));
+    if (r0.length) return fail('群體恐慌（中間 4 人塔）', r0);
+    memento2p();
   });
+  // 第二輪：死亡警告＋兩側 2 人塔（等 4 秒易傷消失再踩）
+  const memento2p = () => {
+    lit(['Wu', 'Wd', 'Eu', 'Ed']);
+    const LEN = 4.6;
+    setCast('死亡警告', '分左右兩邊（無視黑白翅膀）：易傷消失後踩兩側 2 人塔', LEN);
+    advice = '踩完中間塔 → 分左右兩邊去 2 人塔（中間會被死亡警告打）。易傷消失後才算踩到。';
+    setWings(pick(['W', 'E']));
+    const strip = omen(rectMesh(-MM_MUD, MM_MUD, -HZ, HZ, 0x8a2bff, 0.3), LEN);
+    const t2 = ['Wu', 'Wd', 'Eu', 'Ed'];
+    const spotOf = (m) => {
+      const k = t2.find((k) => MM_TOWERS[k].ids.includes(m.id));
+      const tw = MM_TOWERS[k];
+      return { x: tw.x + (tw.ids[0] === m.id ? -0.5 : 0.5), z: tw.z };
+    };
+    setPlan(spotOf, 0.2);
+    at(t + LEN, () => {
+      removeFx(strip);
+      setWings(null);
+      strongFlash(rectMesh(-MM_MUD, MM_MUD, -HZ, HZ, 0x8a2bff, 0.5));
+      let r = members
+        .filter((m) => Math.abs(m.x) < MM_MUD)
+        .map((m) => `${who(m)} 站在中間，被死亡警告打到。`);
+      r = r.concat(soakTowers(t2, '第二輪：'));
+      t2.forEach((k) => removeFx(all[k]));
+      if (r.length) return fail('群體恐慌（死亡警告＋2 人塔）', r);
+      // 黑泥 4 秒
+      const mud = addFx(rectMesh(-MM_MUD, MM_MUD, -HZ, HZ, 0x2a0a48, 0.75, 0.05), 4, false);
+      mud.renderOrder = 2;
+      const mudEnd = t + 4;
+      tick(() => {
+        if (t > mudEnd) return true;
+        const bad = members.find((m) => Math.abs(m.x) < MM_MUD - 0.3);
+        if (bad) {
+          fail('群體恐慌', [`${who(bad)} 踩到中間的黑泥（流血）。等黑泥消失再穿過中間。`]);
+          return true;
+        }
+      });
+      // 第三輪：青之衝擊（MT）＋右上、左下 3 人塔
+      const g1 = ['H2', 'D1', 'D2'],
+        g2 = ['H1', 'D3', 'D4'];
+      lit(['NE', 'SW']);
+      setCast('青之衝擊', 'MT 去左上角；其他人等易傷消失後踩 3 人塔', 5);
+      shockMark('MT');
+      advice =
+        'MT 左上角吃死刑；H2 D1 D2 踩右上塔、H1 D3 D4 踩左下塔（扇形會蓋到左下塔的西半邊 → 站塔的東側）。';
+      // 下方的 3 人塔有一半在青之衝擊扇形裡：站靠場地中線的那一側（s = -1 左下塔、+1 右下塔）
+      const LOW_SPOT = [
+        [7.0, 11.4],
+        [6.9, 12.6],
+        [7.6, 13.4],
+      ];
+      const p3 = (m, a, b) => {
+        const tw = MM_TOWERS[g1.includes(m.id) ? a : b];
+        const i = (g1.includes(m.id) ? g1 : g2).indexOf(m.id);
+        if (tw.z > 0) {
+          const s = Math.sign(tw.x);
+          return { x: s * LOW_SPOT[i][0], z: LOW_SPOT[i][1] };
+        }
+        return { x: tw.x + 0.9 + (i - 1) * 0.6, z: tw.z + (i === 1 ? 0.5 : 0) };
+      };
+      setPlan((m) => (m.tank ? TANK_CORNER[m.id] : p3(m, 'NE', 'SW')), 0.3);
+      at(t + 5, () => {
+        let r2 = shockHit('MT');
+        setTag(byId('MT'), '');
+        r2 = r2.concat(soakTowers(['NE', 'SW'], '第三輪：'));
+        ['NE', 'SW'].forEach((k) => removeFx(all[k]));
+        if (r2.length) return fail('群體恐慌（第三輪）', r2);
+        // 第四輪：青之衝擊（ST）＋左上、右下 3 人塔
+        lit(['NW', 'SE']);
+        setCast('青之衝擊', 'ST 去右上角吃第二下；換左上、右下的塔', 5);
+        shockMark('ST');
+        advice =
+          'ST 必須在最右上角；H2 D1 D2 換到左上塔、H1 D3 D4 換到右下塔（扇形會蓋到右下塔的東半邊 → 站塔的西側）。';
+        setPlan((m) => (m.tank ? TANK_CORNER[m.id] : p3(m, 'NW', 'SE')), 0.3);
+        at(t + 5, () => {
+          let r3 = shockHit('ST');
+          setTag(byId('ST'), '');
+          r3 = r3.concat(soakTowers(['NW', 'SE'], '第四輪：'));
+          ['NW', 'SE'].forEach((k) => removeFx(all[k]));
+          if (r3.length) return fail('群體恐慌（第四輪）', r3);
+          at(t + 0.8, () => coldGrip(next));
+        });
+      });
+    });
+  };
 }
 
 /* ---------- 狂暴 ---------- */
