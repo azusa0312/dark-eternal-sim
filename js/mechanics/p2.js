@@ -201,10 +201,11 @@ function relentless(next) {
   });
 }
 
-/* ---------- 青之環波：5 個光圈依序放環形（站進那個光圈裡躲），中途巨手橫掃一排 ----------
- * 順序（依攻略）：第 1 個是角落 → 第 2 個一定在第 1 個的正北或正南 → 第 3 個是第 2 個的東西隔壁
- *  → 第 4 個是第 3 個的正北或正南 → 最後中間。下一個要爆的光圈會先變綠、變大。
- * 第 3 下前出現巨手：橫掃中間排或第 4 個光圈那排 → 在第 3 個角落等巨手打完再跑。 */
+/* ---------- 青之環波：光圈依序放環形（站進那個光圈裡躲），中途巨手橫掃一排 ----------
+ * 順序：第 1 個是角落 → 第 2 個一定在第 1 個的正北或正南（攻略）
+ *  → 躲完這兩下，巨手橫掃（中間排，或第 1 個光圈那排）→ 第 3 個是中間 → 剩下的角落。
+ * 第一次 5 下（最後同時讀青魂 → 二重／四重波），第二次 4 下（攻略：four donuts + hand）。
+ * 下一個要爆的光圈會先變綠、變大。巨手掃中間排時，要在第 2 個角落等它打完再去中間。 */
 const ORBS = {
   TL: { x: -12.6, z: -10.4 },
   TR: { x: 12.6, z: -10.4 },
@@ -217,15 +218,17 @@ const ORB_SAFE = 3;
 const VERT = { TL: 'BL', BL: 'TL', TR: 'BR', BR: 'TR' };
 const HORI = { TL: 'TR', TR: 'TL', BL: 'BR', BR: 'BL' };
 function ringWave(next, opt = {}) {
+  const count = opt.count || 5,
+    withSoul = opt.soul !== false;
   const o1 = window.__force_orb || pick(['TL', 'TR', 'BL', 'BR']);
   const o2 = VERT[o1],
-    o3 = HORI[o2],
-    o4 = VERT[o3];
-  const seq = [o1, o2, o3, o4, 'C'];
-  // 巨手掃的排：中間排，或第 4 個光圈所在的排
+    o4 = HORI[o2],
+    o5 = VERT[o4];
+  const seq = [o1, o2, 'C', o4, o5].slice(0, count);
+  // 巨手掃的排：中間排（擋住去中間的路 → 要等），或第 1 個光圈那排（不影響，直接去中間）
   const band = window.__force_band || pick(['mid', 'far']);
-  const bandZ = band === 'mid' ? [-5, 5] : ORBS[o4].z < 0 ? [-HZ, -5] : [5, HZ];
-  const bandName = band === 'mid' ? '中間排' : ORBS[o4].z < 0 ? '第一排（北）' : '第三排（南）';
+  const bandZ = band === 'mid' ? [-5, 5] : ORBS[o1].z < 0 ? [-HZ, -5] : [5, HZ];
+  const bandName = band === 'mid' ? '中間排' : ORBS[o1].z < 0 ? '第一排（北）' : '第三排（南）';
   const orbMeshes = {};
   Object.entries(ORBS).forEach(([k, p]) => {
     const g = new T.Group();
@@ -250,39 +253,47 @@ function ringWave(next, opt = {}) {
     z: ROLE_IDS.indexOf(m.id) < 4 ? -0.5 : 0.5,
   });
   const at2 = (k, m) => ({ x: ORBS[k].x + off(m).x, z: ORBS[k].z + off(m).z });
-  // 每一下：光圈變綠 → len 秒後以它為中心放環形（只有光圈內安全）
-  const GAPS = [7, 5, 5.5, 6, 4.5];
+  // 每一下：光圈變綠 → GAPS[i] 秒後以它為中心放環形（只有光圈內安全）
+  const GAPS = [7, 5, 5, 5, 5];
+  const SWEEP_DELAY = 1.5; // 第 2 下打完後巨手橫掃
   let hand = null,
     bandMesh = null,
     swept = false,
     kind = null;
+  const last = seq.length - 1;
   const step = (i) => {
     const k = seq[i];
     glow(k, true);
     const donut = omen(ringMesh(ORBS[k].x, ORBS[k].z, ORB_SAFE, 45, 0x55c8ff, 0.18), GAPS[i]);
-    setCast('青之環波', `第 ${i + 1} / 5 下：${ORB_NAME[k]}的光圈（變綠的那個）`, GAPS[i]);
+    setCast('青之環波', `第 ${i + 1} / ${seq.length} 下：${ORB_NAME[k]}的光圈（變綠的那個）`, GAPS[i]);
     advice =
       i === 0
         ? `${ORB_NAME[k]}的光圈先變綠 → 進去躲環形。順序：${seq.map((x) => ORB_NAME[x]).join(' → ')}`
-        : i === 3
-          ? `巨手掃${bandName}：先待在${ORB_NAME[seq[2]]}，等巨手打完再跑去${ORB_NAME[k]}。`
-          : `下一個：${ORB_NAME[k]}。`;
-    if (i === 3)
-      setPlan((m) => (swept ? at2(k, m) : at2(seq[2], m)), 0.15);
-    else setPlan((m) => at2(k, m), i === 0 ? 0.4 : 0.15);
-    // 第 3 下前巨手出現（西側），第 3 下打完 1.5 秒後橫掃
-    if (i === 2) {
-      hand = addFx(placeHand(handModel(4), { x: -HX - 3, z: (bandZ[0] + bandZ[1]) / 2 }, { x: 1, z: 0 }), 20, false);
-      bandMesh = omen(rectMesh(-HX, HX, bandZ[0], bandZ[1], 0xff9a3d, 0.28), GAPS[2] + 1.5);
-      advice = `巨手出現（掃${bandName}）：第 3 下躲完先別動。下一個：${ORB_NAME[k]}。`;
+        : `下一個：${ORB_NAME[k]}。`;
+    // 第 2 下時巨手出現（西側），第 2 下打完 1.5 秒後橫掃
+    if (i === 1) {
+      hand = addFx(
+        placeHand(handModel(4), { x: -HX - 3, z: (bandZ[0] + bandZ[1]) / 2 }, { x: 1, z: 0 }),
+        30,
+        false,
+      );
+      bandMesh = omen(rectMesh(-HX, HX, bandZ[0], bandZ[1], 0xff9a3d, 0.28), GAPS[1] + SWEEP_DELAY);
+      advice =
+        band === 'mid'
+          ? `巨手出現（掃中間排）：躲完這下先別動，等巨手打完再去中間。`
+          : `巨手出現（掃${bandName}）：不影響去中間的路。下一個：${ORB_NAME[k]}。`;
     }
-    // 最後一下（中間）時王讀青魂存一個
-    if (i === 4) {
+    if (i === 2 && band === 'mid') {
+      advice = swept ? `巨手打完了 → 去中間。` : `巨手掃中間排：先待在${ORB_NAME[seq[1]]}，打完再去中間。`;
+      setPlan((m) => (swept ? at2(k, m) : at2(seq[1], m)), 0.15);
+    } else setPlan((m) => at2(k, m), i === 0 ? 0.4 : 0.15);
+    // 第一次的最後一下：王同時讀青魂存一個
+    if (i === last && withSoul) {
       const safe = variant('soulVar', ['in', 'out']);
       kind = pick(['mid', 'side', 'circle', 'donut'].filter((x) => KIND_INFO[x].safe === safe));
       showWheel([{ kind, lit: true }]);
-      omen(storedMesh(kind, 0.2), GAPS[4]);
-      advice = `最後是中間。同時青魂：記住「${SAFE_TXT[safe]}」。`;
+      omen(storedMesh(kind, 0.2), GAPS[i]);
+      advice = `最後一下：${ORB_NAME[k]}。同時青魂：記住「${SAFE_TXT[safe]}」。`;
     }
     at(t + GAPS[i], () => {
       if (state !== 'running') return;
@@ -295,23 +306,28 @@ function ringWave(next, opt = {}) {
         )
       )
         return;
-      if (i === 2)
-        at(t + 1.5, () => {
+      if (i === 1)
+        at(t + SWEEP_DELAY, () => {
           if (state !== 'running') return;
           removeFx(bandMesh);
           strongFlash(rectMesh(-HX, HX, bandZ[0], bandZ[1], 0xff9a3d, 0.5));
           swept = true;
+          if (band === 'mid') advice = '巨手打完了 → 去中間。';
           judge('黑暗巨腕（青之環波）', (m) =>
             m.z > bandZ[0] && m.z < bandZ[1]
-              ? `${who(m)} 在巨手掃的${bandName}，被抓進異空間。等巨手打完再從${ORB_NAME[seq[2]]}出發。`
+              ? `${who(m)} 在巨手掃的${bandName}，被抓進異空間。等巨手打完再從${ORB_NAME[seq[1]]}出發。`
               : '',
           );
         });
-      if (i < 4) return step(i + 1);
+      if (i < last) return step(i + 1);
       Object.values(orbMeshes).forEach(removeFx);
       if (hand) removeFx(hand);
+      if (!withSoul) {
+        cast = null;
+        return next();
+      }
       clearWheel();
-      at(t + 0.5, () => waveRelease([kind], next, '青之環波後的青魂'));
+      at(t + 0.5, () => waveRelease([kind], next, '青之環波後的青魂', 7.5)); // 最後一下可能在遠角，給足跑到分攤點的時間
     });
   };
   step(0);

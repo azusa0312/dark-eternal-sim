@@ -45,9 +45,9 @@ function soulStore(kinds, after) {
 }
 
 /* 二重／四重波＋同時放出儲存的攻擊 */
-function waveRelease(kinds, next, title) {
+function waveRelease(kinds, next, title, len = 5) {
   const type = variant('waveVar', ['two', 'four']);
-  const LEN = 5;
+  const LEN = len;
   const targets = waveTargets(type);
   const safe = KIND_INFO[kinds[kinds.length - 1]].safe;
   setCast(
