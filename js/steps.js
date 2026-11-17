@@ -19,7 +19,12 @@ const STEPS = [
   { id: 'macabre', grp: 'p2', name: '群體恐慌＋青之衝擊＋暗之死腕', fn: (n) => macabre(n) },
   { id: 'rel2', grp: 'p2', name: '青之連魂（第二次）', fn: (n) => relentless(n) },
   { id: 'fear2', grp: 'p2', name: '死之恐懼', fn: (n) => fearOfDeath(n) },
-  { id: 'ring2', grp: 'p2', name: '青之環波（第二次：4 下＋巨手）', fn: (n) => ringWave(n, { count: 4, soul: false }) },
+  {
+    id: 'ring2',
+    grp: 'p2',
+    name: '青之環波（第二次：4 下＋雙手）',
+    fn: (n) => ringWave(n, { count: 4, soul: false, double: true }),
+  },
   {
     id: 'memento2',
     grp: 'p2',
