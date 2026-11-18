@@ -8,7 +8,7 @@
 let cfg = {};
 const VAR_IDS = ['soulVar', 'waveVar', 'fearVar', 'gripVar', 'wingVar', 'rowVar'];
 function readCfg() {
-  cfg = { mode: $('mode').value, role: $('role').value, hintMe: $('hintMe').checked };
+  cfg = { mode: $('mode').value, role: $('role').value, hintMe: $('hintMe').checked, auto: $('autoMe').checked };
   VAR_IDS.forEach((id) => (cfg[id] = $(id).value));
 }
 // 依設定（或測試掛鉤 window.__forceX）決定變體
