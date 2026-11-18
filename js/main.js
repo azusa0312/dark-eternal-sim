@@ -38,8 +38,10 @@ function updateJump(m, dt) {
   m.y = Math.max(0, m.y + m.vy * dt);
   if (m.y === 0) m.vy = 0;
 }
+// 自動模式：玩家角色也照攻略走（設定面板勾選，或測試掛鉤 window.__autopilot）
+const autoOn = () => cfg.auto || window.__autopilot;
 function updatePlayer(dt) {
-  if (player.dead) return;
+  if (player.dead || autoOn()) return;
   let f = 0,
     r = 0;
   if (keys.KeyW || keys.ArrowUp) f += 1;
@@ -64,7 +66,7 @@ function updatePlayer(dt) {
 }
 function updateNpcs(dt) {
   members.forEach((m) => {
-    if ((m.isPlayer && !window.__autopilot) || m.dead) return;
+    if ((m.isPlayer && !autoOn()) || m.dead) return;
     if (state === 'running' && planFn && t >= m.reactAt) {
       const p = planFn(m);
       if (p) {
@@ -91,7 +93,7 @@ function updateCastHud() {
     $('castName').innerHTML = '<span>準備</span>';
     $('castFill').style.width = '0%';
   }
-  $('advice').textContent = cfg.hintMe && !player.dead ? advice : '';
+  $('advice').textContent = (cfg.hintMe || cfg.auto) && !player.dead ? advice : '';
 }
 // 提示圈：玩家該站的位置（金色）
 const hintRing = new T.Group();
@@ -101,7 +103,8 @@ hintRing.children.forEach((c) => (c.renderOrder = 10));
 hintRing.visible = false;
 scene.add(hintRing);
 function updateHint() {
-  if (!cfg.hintMe || state !== 'running' || !planFn || window.__autopilot) {
+  // 自動模式也顯示（標出角色接下來要去的位置）；測試掛鉤不顯示
+  if (!(cfg.hintMe || cfg.auto) || state !== 'running' || !planFn || window.__autopilot) {
     hintRing.visible = false;
     return;
   }
@@ -115,7 +118,7 @@ function updateHint() {
 }
 function updateMeHud() {
   if (!player) return;
-  $('meRole').textContent = `${player.id}・${GROUP_NAME[player.grp]}`;
+  $('meRole').textContent = `${player.id}・${GROUP_NAME[player.grp]}${cfg.auto ? '（自動）' : ''}`;
   const left = player.vuln - t;
   $('meDeb').innerHTML =
     left > 0 && state === 'running' ? `<span class="deb">魔法受傷加重 ${left.toFixed(1)}s</span>` : '';
