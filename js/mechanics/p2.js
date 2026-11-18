@@ -184,7 +184,7 @@ function relentless(next) {
         if (reasons.length) return fail('青之連魂', reasons);
         k++;
         if (k < 4) {
-          setCast('青之連魂', `第 ${k + 1} / 4 下：${cfg.hintMe ? SAFE_TXT[seq[k].safe] : '？'}`, 3);
+          setCast('青之連魂', `第 ${k + 1} / 4 下：${cfg.hintMe || cfg.auto ? SAFE_TXT[seq[k].safe] : '？'}`, 3);
           members.forEach((m) => (m.reactAt = t + 0.1 + Math.random() * 0.2));
           at(t + 3, hit);
         } else {
@@ -194,7 +194,7 @@ function relentless(next) {
         }
       };
       at(t + 3, () => {
-        setCast('青之連魂', `第 1 / 4 下：${cfg.hintMe ? SAFE_TXT[seq[0].safe] : '？'}`, 2);
+        setCast('青之連魂', `第 1 / 4 下：${cfg.hintMe || cfg.auto ? SAFE_TXT[seq[0].safe] : '？'}`, 2);
         at(t + 2, hit);
       });
     });
